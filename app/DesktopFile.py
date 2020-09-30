@@ -43,19 +43,21 @@ class DesktopFileSet:
 
     def get_desktop_file_set(self, directory):
         return set([re.sub(r'(.*)\.desktop',r'\1',x) for x in glob.glob1( directory, '*.desktop' )])
-	
+
     def get_local (self):
         self.local_set = self.get_desktop_file_set(Config.user_desktop_file_directory)
+        #print self.local_set
 
     def get_global (self):
         self.global_set = self.get_desktop_file_set(Config.global_desktop_file_directory) - self.local_set
+        #print self.global_set
 
     def get_configured_from_check (self):
         for app in list(self.local_set):
             desktop_file = DesktopFile(app)
             if desktop_file.is_configured():
                 yield [ desktop_file.get_app_info()[0], desktop_file.get_exec_list() ]
-	
+
     def get_apps_info (self):
         for file_name in self.local_set: 
             desktop_file = DesktopFile(file_name, local=True)
@@ -65,7 +67,7 @@ class DesktopFileSet:
         for file_name in self.global_set:
             app_info_list = DesktopFile(file_name, local=False).get_app_info()
             yield app_info_list + [True] + 4*[False] + ['default']
-		
+
     def configure_file (self, file_name):
         if file_name in self.local_set:
             DesktopFile(file_name, local=True).configure_file() #False : don't add the tag : created for bumblebee
@@ -96,11 +98,12 @@ class DesktopFile:
         self.local = local
         if self.local == True : 
             self.file_path = Config.user_desktop_file_directory + self.file_name_with_extension
-        elif self.local == False : self.file_path = Config.global_desktop_file_directory + self.file_name_with_extension		
-        self.config = ConfigParser.ConfigParser()
-        self.config.optionxform = str
-        self.config.read(self.file_path)
-
+        elif self.local == False : self.file_path = Config.global_desktop_file_directory + self.file_name_with_extension
+        
+        #for debug print self.file_path
+    	self.config = ConfigParser.ConfigParser()
+    	self.config.optionxform = str
+    	self.config.read(self.file_path)
 # FUNCTIONS TO GET THE VALUES INSIDE ALL DESKTOP FILES
     def get_app_info(self):
         """Function to get values inside a desktop file object : 
@@ -141,7 +144,7 @@ class DesktopFile:
         """Function to search for configuration inside a local desktop file object : 
         Configured, (Selected by default : unselected), Mode, 32bits, Compression
         """
-        self.app_exec= self.config.get('Desktop Entry','Exec')
+        self.app_exec = self.config.get('Desktop Entry','Exec')
         if self.is_configured(): return [True, True] + self.get_mode()
         else: return [False, False] + [None] + self.get_exec_config(self.app_exec)[1:]
         #else: return [False, False] + [None] + [False] + ['default']
@@ -157,7 +160,7 @@ class DesktopFile:
         elif ( 'BumblebeeDisable' in Shortcuts and not 'optirun ' in self.app_exec ):
             return [Config.mode_keys['option']] + self.get_exec_config(self.config.get('BumblebeeDisable Shortcut Group','Exec'))[1:]
         else: return ['Unrecognized mode'] + exec_config[1:] 
-			
+
     def set_true(arg, next_arg=None): return {arg:True}
 
     def get_compression(arg, next_arg=None, default=Config.default_compression): 
@@ -236,7 +239,8 @@ class DesktopFile:
         else: 
             self.remove_shortcuts()
             return False
-		
+        #print "----------------"
+
     def remove_shortcuts(self):
         """Function to remove shorcut section for bumblebee and remove the shortcuts to the desktop file object"""
         self.config.set('Desktop Entry','Exec',self.config.get('BumblebeeEnable Shortcut Group','Exec'))

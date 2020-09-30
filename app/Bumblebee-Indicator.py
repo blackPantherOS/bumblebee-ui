@@ -41,7 +41,8 @@ class BumblebeeIndicator():
 #FIXME The notification must be replaced when still visible
     def notify_state(self, title, msg, icon_name):
         pynotify.init("Bumblebee notification")
-        self.notification= pynotify.Notification(title, msg, IconSet().get_uri(icon_name,48))
+        self.notification = pynotify.Notification(title, msg, "/usr/share/icons/" + icon_name)
+        #self.notification = pynotify.Notification(title, msg, IconSet().get_uri(icon_name,48))
         self.notification.set_urgency(pynotify.URGENCY_CRITICAL)
         #FIXME The notification is to slow and this doesn't work
         #self.notification.set_timeout(1000)
