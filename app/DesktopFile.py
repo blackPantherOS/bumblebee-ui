@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python2
 # -*- Mode: Python; coding: utf-8; indent-tabs-mode: nil; tab-width: 4 -*-
 ### BEGIN LICENSE
 #
@@ -59,8 +59,9 @@ class DesktopFileSet:
                 yield [ desktop_file.get_app_info()[0], desktop_file.get_exec_list() ]
 
     def get_apps_info (self):
-        for file_name in self.local_set: 
+        for file_name in self.local_set:
             desktop_file = DesktopFile(file_name, local=True)
+#            app_type = desktop_file.get_app_type()
             app_info_list = desktop_file.get_app_info()
             app_config = desktop_file.get_app_config()
             yield app_info_list + [True] + app_config
@@ -96,23 +97,30 @@ class DesktopFile:
         self.file_name_without_extension=file_name
         self.file_name_with_extension=self.file_name_without_extension + ".desktop"
         self.local = local
-        if self.local == True : 
+        if self.local == True :
             self.file_path = Config.user_desktop_file_directory + self.file_name_with_extension
         elif self.local == False : self.file_path = Config.global_desktop_file_directory + self.file_name_with_extension
-        
+
         #for debug print self.file_path
     	self.config = ConfigParser.ConfigParser()
     	self.config.optionxform = str
     	self.config.read(self.file_path)
 # FUNCTIONS TO GET THE VALUES INSIDE ALL DESKTOP FILES
     def get_app_info(self):
-        """Function to get values inside a desktop file object : 
+        """Function to get values inside a desktop file object :
         Application Name, File Name, Application Categories List, Application Icon Path"""
-        return [self.config.get('Desktop Entry','Name'), self.file_name_without_extension, self.get_category(), self.get_icon_path()]
-	
+        print "File" + self.file_name_without_extension,
+        AppType = self.config.get('Desktop Entry', 'Type')
+        if AppType == "Application":
+            print " DESK - " +self.file_name_without_extension + " = "+ AppType
+            return [self.config.get('Desktop Entry','Name'), self.file_name_without_extension, self.get_category(), self.get_icon_path()]
+        else:
+            return [self.config.get('Desktop Entry','Type'), self.file_name_without_extension, self.get_category(), self.get_icon_path()]
+
+
     def get_category(self, app_category=Config.unmatch_categorie[0]):
         """Function to get the main category if categories are defined in the desktop file"""
-        try: 
+        try:
             for item in reversed(self.config.get('Desktop Entry','Categories').split(';')):
                 for matching_item in reversed(Config.categorie_list):
                     if item==matching_item[0] : app_category = str(item)
@@ -121,19 +129,19 @@ class DesktopFile:
 	
     def get_icon_path(self):
         """Function to get the icon path or the icon name if an icon is defined in the desktop file"""
-        try : 
+        try :
             icon_name=self.config.get('Desktop Entry', 'Icon')
             if os.path.exists(icon_name): return icon_name
             else:
                 try : return os.path.splitext(os.path.basename(icon_name))[0]
                 except : return Config.default_icon_name	
-        except ConfigParser.NoOptionError: 
+        except ConfigParser.NoOptionError:
             return Config.default_icon_name
 										
     def is_configured(self):
         """Function to check if the desktop file is configured for Bumblebee or not"""
-        try: 
-            if (self.config.has_section('BumblebeeDisable Shortcut Group') 
+        try:
+            if (self.config.has_section('BumblebeeDisable Shortcut Group')
             and self.config.has_section('BumblebeeEnable Shortcut Group')
             and self.config.has_option('Desktop Entry','X-Ayatana-Desktop-Shortcuts')): return True
             else: return False
@@ -141,13 +149,18 @@ class DesktopFile:
 
 # FUNCTIONS TO GET VALUE INSIDE LOCAL DESKTOP FILES
     def get_app_config(self):
-        """Function to search for configuration inside a local desktop file object : 
+        """Function to search for configuration inside a local desktop file object :
         Configured, (Selected by default : unselected), Mode, 32bits, Compression
         """
         self.app_exec = self.config.get('Desktop Entry','Exec')
         if self.is_configured(): return [True, True] + self.get_mode()
         else: return [False, False] + [None] + self.get_exec_config(self.app_exec)[1:]
         #else: return [False, False] + [None] + [False] + ['default']
+
+    def get_app_type(self):
+        AppType = self.config.get('Desktop Entry', 'Type')
+        if AppType == "Application":return [True, True]
+        else: return [False, False]
 
     def get_mode(self):
         """Function to get the mode and the exec config in a desktop file"""
@@ -159,17 +172,17 @@ class DesktopFile:
             return [Config.mode_keys['eco']] + exec_config[1:]
         elif ( 'BumblebeeDisable' in Shortcuts and not 'optirun ' in self.app_exec ):
             return [Config.mode_keys['option']] + self.get_exec_config(self.config.get('BumblebeeDisable Shortcut Group','Exec'))[1:]
-        else: return ['Unrecognized mode'] + exec_config[1:] 
+        else: return ['Unrecognized mode'] + exec_config[1:]
 
     def set_true(arg, next_arg=None): return {arg:True}
 
-    def get_compression(arg, next_arg=None, default=Config.default_compression): 
+    def get_compression(arg, next_arg=None, default=Config.default_compression):
         if (next_arg in Config.compression_list and next_arg != default): return {arg:next_arg}
 
-    def get_exec_config(self, Exec, i=-1, 
+    def get_exec_config(self, Exec, i=-1,
                 case={'-32':set_true, '-f':set_true, '-c':get_compression},
                 skip=['optirun', 'optirun', '-d', ':0', ':1', ':2'] + Config.compression_list):
-        """Function to search for configuration inside optirun arguments in the desktop file object : 
+        """Function to search for configuration inside optirun arguments in the desktop file object :
         Force_eco, 32bits, Compression"""	
 		arg_list=re.split(' ',Exec)	
         exec_config={'-f':False, '-32':False, '-c':'default'}
@@ -193,7 +206,7 @@ class DesktopFile:
         """Function to configure the local or global desktop file"""
         if self.local == False:
             try : self.config.set('Desktop Entry', 'Comment', self.config.get('Desktop Entry','Comment') + ' (created for Bumblebee)')
-            except ConfigParser.NoOptionError: 
+            except ConfigParser.NoOptionError:
                 self.config.set('Desktop Entry', 'Comment', 'This file has been created for Bumblebee.')		
             self.add_shortcuts()
             os.chmod(Config.user_desktop_file_directory + self.file_name_with_extension,0755)
@@ -226,17 +239,17 @@ class DesktopFile:
 # FUNCTIONS TO UNCONFIGURE FILES OR REMOVE THEM
     def is_created(self):
         """Function to check if the file is tagged as created for Bumblebee or not"""
-        try:  #FIXME Bumblebee Enable must not be set in comment but somewhere else 
+        try:  #FIXME Bumblebee Enable must not be set in comment but somewhere else
             if 'created for Bumblebee' in self.config.get('Desktop Entry','Comment'): return True
-            else : return False 
-        except ConfigParser.NoOptionError: return False 
+            else : return False
+        except ConfigParser.NoOptionError: return False
 
     def unconfigure_file(self):
         """Function to unconfigure a file configured for Bumblebee : remove the shortcuts or remove the file if it's tagged as created for Bumblebee"""
         if self.is_created():
             os.remove(self.file_path)
             return True
-        else: 
+        else:
             self.remove_shortcuts()
             return False
         #print "----------------"
@@ -265,11 +278,11 @@ class DesktopFile:
         if not (compression == "default" or compression == Config.default_compression) : option+='-c '+ compression + ' '
         clean_exec= self.config.get('BumblebeeEnable Shortcut Group','Exec')
         self.config.set('BumblebeeDisable Shortcut Group','Exec','optirun ' + option + clean_exec)
-        if mode == Config.mode_keys['perf']: 
+        if mode == Config.mode_keys['perf']:
             self.set_exec_config_default('optirun ' + option + clean_exec, 'BumblebeeDisable', 'BumblebeeEnable')
-        elif mode == Config.mode_keys['eco']: 
+        elif mode == Config.mode_keys['eco']:
             self.set_exec_config_default('optirun ' + option + clean_exec, 'BumblebeeEnable', 'BumblebeeDisable')
-        else: 
+        else:
             self.set_exec_config_default(clean_exec, 'BumblebeeEnable', 'BumblebeeDisable')
         self.write_config_to_file(self.file_path)
 	
@@ -277,7 +290,7 @@ class DesktopFile:
         self.config.set('Desktop Entry','Exec',Exec)
         self.config.set('Desktop Entry','X-Ayatana-Desktop-Shortcuts', re.sub(Initial_shortcut,Final_shortcut,self.config.get('Desktop Entry','X-Ayatana-Desktop-Shortcuts')))
 
-if __name__=="__main__" : 
+if __name__=="__main__" :
     print "DesktopFile.py can't run as a standalone application"
     quit()
 
